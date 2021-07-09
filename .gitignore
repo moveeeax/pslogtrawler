@@ -1,0 +1,8 @@
+# Pester / test output
+testResults*.xml
+coverage*.xml
+
+# Editor / OS cruft
+.vscode/
+*.swp
+.DS_Store
