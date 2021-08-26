@@ -1,0 +1,12 @@
+[2021-08-14T09:00:01] [INFO] service starting up
+[2021-08-14T09:00:02] [DEBUG] loading configuration from disk
+[2021-08-14T09:00:05] [INFO] listening on port 8080
+[2021-08-14T09:03:11] [WARN] slow response from upstream
+[2021-08-14T09:03:12] [ERROR] upstream request timeout
+[2021-08-14T09:03:45] [ERROR] connection refused by database
+[2021-08-14T09:04:00] [INFO] retry succeeded
+[2021-08-14T10:15:30] [WARN] disk usage above 80 percent
+[2021-08-14T10:16:00] [ERROR] failed to write checkpoint: disk full
+[2021-08-14T10:20:00] [INFO] checkpoint written after cleanup
+this line is malformed and has no level
+[2021-08-14T10:59:59] [DEBUG] periodic health check ok
