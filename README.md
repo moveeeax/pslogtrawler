@@ -34,6 +34,57 @@ Import-Module ./pslogtrawler/PSLogTrawler.psd1
 Levels are normalized onto four buckets — `ERROR`, `WARN`, `INFO`, `DEBUG` —
 so synonyms like `WARNING`, `FATAL`, `TRACE` and `NOTICE` are folded in.
 
+## Usage
+
+### Parse a single line
+
+```powershell
+'[2021-08-14T13:45:22] [ERROR] disk full' | ConvertFrom-LogLine
+
+# Timestamp           Level Message
+# ---------           ----- -------
+# 2021-08-14 13:45:22 ERROR disk full
+```
+
+### Summarize a file
+
+```powershell
+Get-LogSummary -Path ./app.log
+
+# Total Error Warn Info Debug First               Last
+# ----- ----- ---- ---- ----- -----               ----
+#   842    17   40  760    25 2021-08-14 09:00:01 2021-08-14 17:59:58
+```
+
+### Pull recent errors matching a pattern
+
+```powershell
+Get-Content app.log |
+    Select-LogError -Since (Get-Date).AddHours(-1) -Pattern 'timeout|refused' -IncludeWarnings
+```
+
+### Measure event rate
+
+```powershell
+# Errors per hour across the file
+Get-Content app.log | Measure-LogRate -Interval Hour -Level ERROR
+
+# Start               Interval Count Rate
+# -----               -------- ----- ----
+# 2021-08-14 09:00:00 Hour        12  0.2
+# 2021-08-14 10:00:00 Hour         5 0.0833
+```
+
+`Rate` is always expressed per minute, so hourly buckets divide the count by 60.
+
+## Running the tests
+
+Tests use [Pester 5.x](https://pester.dev):
+
+```powershell
+Invoke-Pester -Path ./Tests -Output Detailed
+```
+
 ## License
 
 MIT © 2021 Michael Tarassov
