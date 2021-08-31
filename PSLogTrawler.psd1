@@ -8,6 +8,8 @@
     Description       = 'Cross-platform toolkit for parsing and analyzing plain-text log files.'
     PowerShellVersion = '7.1'
 
+    FormatsToProcess  = @('PSLogTrawler.Format.ps1xml')
+
     FunctionsToExport = @(
         'ConvertFrom-LogLine',
         'Get-LogSummary',
