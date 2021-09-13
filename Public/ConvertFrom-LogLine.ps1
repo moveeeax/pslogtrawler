@@ -38,7 +38,7 @@ function ConvertFrom-LogLine {
 
     begin {
         $isoPattern = [regex]::new(
-            '^\s*\[?(?<ts>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\]?\s*' +
+            '^\s*\[?(?<ts>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\]?\s*' +
             '(?:\[\s*(?<lvl>[A-Za-z]+)\s*\]|(?<lvl2>[A-Za-z]+))?\s*(?<msg>.*)$')
 
         $syslogPattern = [regex]::new(
@@ -59,7 +59,10 @@ function ConvertFrom-LogLine {
 
             $m = $isoPattern.Match($text)
             if ($m.Success) {
-                $timestamp = ConvertTo-LogDateTime -Text $m.Groups['ts'].Value -DefaultYear $DefaultYear
+                # Some frameworks (log4j/log4net) use a comma before the
+                # fractional seconds; normalize it so .NET can parse it.
+                $tsText = $m.Groups['ts'].Value -replace ',(\d)', '.$1'
+                $timestamp = ConvertTo-LogDateTime -Text $tsText -DefaultYear $DefaultYear
 
                 $rawLevel = if ($m.Groups['lvl'].Success) { $m.Groups['lvl'].Value }
                             elseif ($m.Groups['lvl2'].Success) { $m.Groups['lvl2'].Value }
