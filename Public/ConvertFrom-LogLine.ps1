@@ -44,7 +44,8 @@ function ConvertFrom-LogLine {
         $syslogPattern = [regex]::new(
             '^\s*(?<ts>[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(?<msg>.*)$')
 
-        $levelWord = [regex]::new('\b(ERROR|ERR|FATAL|CRITICAL|CRIT|SEVERE|WARN|WARNING|INFO|INFORMATION|NOTICE|DEBUG|TRACE|VERBOSE|FINE)\b',
+        $levelAlternation = (Get-KnownLevelToken) -join '|'
+        $levelWord = [regex]::new(('\b({0})\b' -f $levelAlternation),
             [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     }
 
