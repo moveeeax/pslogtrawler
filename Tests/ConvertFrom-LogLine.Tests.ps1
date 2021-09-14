@@ -21,6 +21,13 @@ Describe 'ConvertFrom-LogLine' {
             $entry.Message | Should -Be 'retrying now'
         }
 
+        It 'parses log4j-style comma milliseconds without polluting the message' {
+            $entry = ConvertFrom-LogLine -Line '2021-08-14 13:45:22,123 ERROR something broke'
+            $entry.Level | Should -Be 'ERROR'
+            $entry.Message | Should -Be 'something broke'
+            $entry.Timestamp.Millisecond | Should -Be 123
+        }
+
         It 'normalizes level synonyms such as WARNING to WARN' {
             (ConvertFrom-LogLine -Line '[2021-08-14T00:00:00] [WARNING] hmm').Level | Should -Be 'WARN'
             (ConvertFrom-LogLine -Line '[2021-08-14T00:00:00] [FATAL] boom').Level | Should -Be 'ERROR'
