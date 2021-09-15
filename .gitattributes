@@ -1,0 +1,9 @@
+# Keep PowerShell sources LF in the repo for consistent cross-platform diffs.
+*.ps1   text eol=lf
+*.psm1  text eol=lf
+*.psd1  text eol=lf
+*.ps1xml text eol=lf
+*.md    text eol=lf
+
+# Log fixtures are parsed line by line; pin them to LF.
+*.log   text eol=lf
