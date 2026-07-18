@@ -24,7 +24,7 @@
         PSData = @{
             Tags       = @('logging', 'log', 'parsing', 'analysis', 'devops', 'crossplatform')
             LicenseUri = 'https://opensource.org/licenses/MIT'
-            ProjectUri = 'https://github.com/moveeeax/pslogtrawler'
+            ProjectUri = 'https://github.com/cybercapybara/pslogtrawler'
             ReleaseNotes = 'Initial 0.1.0 release: ConvertFrom-LogLine, Get-LogSummary, Select-LogError, Measure-LogRate.'
         }
     }
