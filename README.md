@@ -9,7 +9,7 @@ and measure event rates over time. No dependencies beyond PowerShell 7.1+.
 Clone the repo and import the module:
 
 ```powershell
-git clone https://github.com/cybercapybara/pslogtrawler.git
+git clone https://github.com/moveeeax/pslogtrawler.git
 Import-Module ./pslogtrawler/PSLogTrawler.psd1
 ```
 
