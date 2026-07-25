@@ -72,5 +72,40 @@ Describe 'Measure-LogRate' {
         It 'stamps buckets with the PSLogTrawler.RateBucket type name' {
             ($lines | Measure-LogRate)[0].PSObject.TypeNames | Should -Contain 'PSLogTrawler.RateBucket'
         }
+
+        It 'normalizes explicit UTC offsets to a single timeline' {
+            # Both stamps denote the same instant, so they belong in one bucket.
+            $mixed = @(
+                '[2021-08-14T13:30:00+02:00] [ERROR] as written in Berlin',
+                '[2021-08-14T11:30:00+00:00] [ERROR] the very same instant'
+            )
+            $ordered = @($mixed | Measure-LogRate -Interval Hour)
+            # Measure-Object, because a RateBucket has its own Count property.
+            ($ordered | Measure-Object).Count | Should -Be 1
+            $ordered[0].Count | Should -Be 2
+        }
+    }
+
+    Context 'file input' {
+        BeforeAll {
+            $script:tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("pslt-rate-{0}.log" -f [guid]::NewGuid())
+            Set-Content -LiteralPath $tmp -Value $lines
+        }
+        AfterAll {
+            Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue
+        }
+
+        It 'produces the same buckets from a file as from the pipeline' {
+            $fromFile = Measure-LogRate -Path $tmp -Interval Hour
+            $fromPipe = $lines | Measure-LogRate -Interval Hour
+            $fromFile.Count | Should -Be $fromPipe.Count
+            $fromFile.Start | Should -Be $fromPipe.Start
+            $fromFile.Count | Should -Be $fromPipe.Count
+        }
+
+        It 'throws when the file does not exist' {
+            { Measure-LogRate -Path (Join-Path ([System.IO.Path]::GetTempPath()) 'nope-2231.log') } |
+                Should -Throw -ExpectedMessage '*Log file not found*'
+        }
     }
 }

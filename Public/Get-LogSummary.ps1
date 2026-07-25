@@ -11,6 +11,10 @@ function Get-LogSummary {
         The returned object also carries the time span covered by the lines
         that had a parseable timestamp (First/Last), which makes it handy for a
         quick "what happened in this file" glance.
+
+        The tally is a running aggregate, so the log is never held in memory:
+        both -Path and pipeline input are consumed a line at a time and memory
+        stays flat no matter how large the log is.
     .PARAMETER Path
         Path to a log file to read.
     .PARAMETER InputObject
@@ -38,66 +42,66 @@ function Get-LogSummary {
     )
 
     begin {
-        $collected = [System.Collections.Generic.List[string]]::new()
+        # All mutable state lives in one object so the shared per-line routine
+        # below can update it from its own scope.
+        $state = @{
+            Counts       = [ordered]@{ ERROR = 0; WARN = 0; INFO = 0; DEBUG = 0; Unknown = 0 }
+            Total        = 0
+            Blank        = 0
+            First        = $null
+            Last         = $null
+            IncludeBlank = [bool] $IncludeBlank
+        }
+
+        $tally = {
+            param([string] $Text)
+
+            if ([string]::IsNullOrWhiteSpace($Text) -and -not $state.IncludeBlank) {
+                $state.Blank++
+                return
+            }
+
+            $state.Total++
+            $entry = ConvertFrom-LogLine -Line $Text
+
+            if ($entry.Level) { $state.Counts[$entry.Level]++ }
+            else              { $state.Counts['Unknown']++ }
+
+            if ($entry.Timestamp) {
+                if ($null -eq $state.First -or $entry.Timestamp -lt $state.First) { $state.First = $entry.Timestamp }
+                if ($null -eq $state.Last  -or $entry.Timestamp -gt $state.Last)  { $state.Last  = $entry.Timestamp }
+            }
+        }
 
         if ($PSCmdlet.ParameterSetName -eq 'Path') {
-            if (-not (Test-Path -LiteralPath $Path)) {
-                throw "Log file not found: $Path"
-            }
-            foreach ($ln in (Get-Content -LiteralPath $Path)) {
-                $collected.Add([string] $ln)
+            $file = Resolve-LogFilePath -Path $Path
+            # ReadLines enumerates lazily -- the file is streamed, not slurped.
+            foreach ($line in [System.IO.File]::ReadLines($file)) {
+                & $tally $line
             }
         }
     }
 
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Pipeline') {
-            foreach ($ln in $InputObject) {
-                $collected.Add([string] $ln)
+            foreach ($line in $InputObject) {
+                & $tally ([string] $line)
             }
         }
     }
 
     end {
-        $counts = [ordered]@{ ERROR = 0; WARN = 0; INFO = 0; DEBUG = 0; Unknown = 0 }
-        $total = 0
-        $blank = 0
-        $first = $null
-        $last  = $null
-
-        foreach ($ln in $collected) {
-            if ([string]::IsNullOrWhiteSpace($ln) -and -not $IncludeBlank) {
-                $blank++
-                continue
-            }
-
-            $total++
-            $entry = ConvertFrom-LogLine -Line $ln
-
-            if ($entry.Level) {
-                $counts[$entry.Level]++
-            }
-            else {
-                $counts['Unknown']++
-            }
-
-            if ($entry.Timestamp) {
-                if ($null -eq $first -or $entry.Timestamp -lt $first) { $first = $entry.Timestamp }
-                if ($null -eq $last  -or $entry.Timestamp -gt $last)  { $last  = $entry.Timestamp }
-            }
-        }
-
         [pscustomobject]@{
             PSTypeName   = 'PSLogTrawler.LogSummary'
-            Total        = $total
-            Error        = $counts['ERROR']
-            Warn         = $counts['WARN']
-            Info         = $counts['INFO']
-            Debug        = $counts['DEBUG']
-            Unknown      = $counts['Unknown']
-            BlankSkipped = $blank
-            First        = $first
-            Last         = $last
+            Total        = $state.Total
+            Error        = $state.Counts['ERROR']
+            Warn         = $state.Counts['WARN']
+            Info         = $state.Counts['INFO']
+            Debug        = $state.Counts['DEBUG']
+            Unknown      = $state.Counts['Unknown']
+            BlankSkipped = $state.Blank
+            First        = $state.First
+            Last         = $state.Last
         }
     }
 }
