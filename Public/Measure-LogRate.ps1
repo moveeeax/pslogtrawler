@@ -45,42 +45,27 @@ function Measure-LogRate {
     )
 
     begin {
-        $collected = [System.Collections.Generic.List[string]]::new()
-
-        if ($PSCmdlet.ParameterSetName -eq 'Path') {
-            if (-not (Test-Path -LiteralPath $Path)) {
-                throw "Log file not found: $Path"
-            }
-            foreach ($ln in (Get-Content -LiteralPath $Path)) {
-                $collected.Add([string] $ln)
-            }
+        # Only the per-bucket counters are retained, never the log lines
+        # themselves, so memory scales with the number of distinct buckets
+        # rather than with the size of the input.
+        $state = @{
+            Buckets = [ordered]@{}
+            Skipped = 0
         }
-    }
 
-    process {
-        if ($PSCmdlet.ParameterSetName -eq 'Pipeline') {
-            foreach ($ln in $InputObject) {
-                $collected.Add([string] $ln)
-            }
-        }
-    }
-
-    end {
         $filterLevel = $PSBoundParameters.ContainsKey('Level')
-        $bucketMinutes = if ($Interval -eq 'Hour') { 60 } else { 1 }
 
-        $buckets = [ordered]@{}
-        $skipped = 0
+        $bucket = {
+            param([string] $Text)
 
-        foreach ($ln in $collected) {
-            if ([string]::IsNullOrWhiteSpace($ln)) { continue }
+            if ([string]::IsNullOrWhiteSpace($Text)) { return }
 
-            $entry = ConvertFrom-LogLine -Line $ln
-            if ($filterLevel -and $entry.Level -ne $Level) { continue }
+            $entry = ConvertFrom-LogLine -Line $Text
+            if ($filterLevel -and $entry.Level -ne $Level) { return }
 
             if ($null -eq $entry.Timestamp) {
-                $skipped++
-                continue
+                $state.Skipped++
+                return
             }
 
             $ts = $entry.Timestamp
@@ -92,23 +77,45 @@ function Measure-LogRate {
             }
 
             $stamp = $key.ToString('o')
-            if ($buckets.Contains($stamp)) {
-                $buckets[$stamp] = @{ Start = $key; Count = $buckets[$stamp].Count + 1 }
+            if ($state.Buckets.Contains($stamp)) {
+                $state.Buckets[$stamp].Count++
             }
             else {
-                $buckets[$stamp] = @{ Start = $key; Count = 1 }
+                $state.Buckets[$stamp] = @{ Start = $key; Count = 1 }
             }
         }
 
-        foreach ($stamp in ($buckets.Keys | Sort-Object)) {
-            $b = $buckets[$stamp]
+        if ($PSCmdlet.ParameterSetName -eq 'Path') {
+            $file = Resolve-LogFilePath -Path $Path
+            # ReadLines enumerates lazily -- the file is streamed, not slurped.
+            foreach ($line in [System.IO.File]::ReadLines($file)) {
+                & $bucket $line
+            }
+        }
+    }
+
+    process {
+        if ($PSCmdlet.ParameterSetName -eq 'Pipeline') {
+            foreach ($line in $InputObject) {
+                & $bucket ([string] $line)
+            }
+        }
+    }
+
+    end {
+        $bucketMinutes = if ($Interval -eq 'Hour') { 60 } else { 1 }
+
+        # Order by the bucket's DateTime rather than by its formatted key, so
+        # the ordering does not depend on the key's string representation
+        # happening to sort chronologically.
+        foreach ($b in ($state.Buckets.Values | Sort-Object -Property Start)) {
             [pscustomobject]@{
                 PSTypeName         = 'PSLogTrawler.RateBucket'
                 Start              = $b.Start
                 Interval           = $Interval
                 Count              = $b.Count
                 Rate               = [math]::Round($b.Count / $bucketMinutes, 4)
-                SkippedNoTimestamp = $skipped
+                SkippedNoTimestamp = $state.Skipped
             }
         }
     }

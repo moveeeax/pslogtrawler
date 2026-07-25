@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # The CI workflow is the only thing with pinned dependencies; keep the
+  # action versions from silently going stale.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
