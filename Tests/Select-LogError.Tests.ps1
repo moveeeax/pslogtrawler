@@ -84,5 +84,37 @@ Describe 'Select-LogError' {
         It 'reads errors from a file path' {
             (Select-LogError -Path $tmp).Count | Should -Be 2
         }
+
+        It 'throws a clear error when the path does not exist' {
+            { Select-LogError -Path (Join-Path ([System.IO.Path]::GetTempPath()) 'nope-4471.log') } |
+                Should -Throw -ExpectedMessage '*Log file not found*'
+        }
+
+        It 'throws rather than trying to read a directory as a log' {
+            { Select-LogError -Path ([System.IO.Path]::GetTempPath()) } |
+                Should -Throw -ExpectedMessage '*directory*'
+        }
+    }
+
+    Context 'hostile -Pattern input' {
+        It 'gives up on a catastrophically backtracking pattern instead of hanging' {
+            # '(a+)+$' against a non-matching run of a's is the classic
+            # exponential-backtracking case. With no match timeout this ran
+            # unbounded (still going after 25s) and could not be interrupted.
+            $line = '[2021-08-14T09:00:00] [ERROR] ' + ('a' * 32) + '!'
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            { $line | Select-LogError -Pattern '(a+)+$' } |
+                Should -Throw -ExpectedMessage '*match timeout*'
+            $sw.Stop()
+            $sw.Elapsed.TotalSeconds | Should -BeLessThan 15
+        }
+
+        It 'reports an invalid regular expression as an argument error' {
+            $err = $null
+            try { 'x' | Select-LogError -Pattern '([unclosed' } catch { $err = $_ }
+            $err | Should -Not -BeNullOrEmpty
+            $err.CategoryInfo.Category | Should -Be 'InvalidArgument'
+            $err.Exception | Should -BeOfType [System.ArgumentException]
+        }
     }
 }

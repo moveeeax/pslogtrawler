@@ -18,7 +18,9 @@ function Select-LogError {
     .PARAMETER Since
         Only return entries at or after this timestamp.
     .PARAMETER Pattern
-        Regular expression the message must match.
+        Regular expression the message must match. Matched case-insensitively
+        and capped at a 2 second timeout per line, so a pattern that backtracks
+        catastrophically fails with a clear error instead of hanging.
     .PARAMETER IncludeWarnings
         Also return WARN entries, not just ERROR.
     .PARAMETER RequireTimestamp
@@ -52,45 +54,86 @@ function Select-LogError {
     begin {
         $wantedLevels = if ($IncludeWarnings) { @('ERROR', 'WARN') } else { @('ERROR') }
         $hasSince = $PSBoundParameters.ContainsKey('Since')
-        $regex = if ($PSBoundParameters.ContainsKey('Pattern')) {
-            [regex]::new($Pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+
+        # Generous for any sane pattern, decisive against a pathological one.
+        $matchTimeout = [timespan]::FromSeconds(2)
+
+        $regex = $null
+        if ($PSBoundParameters.ContainsKey('Pattern')) {
+            try {
+                # -Pattern is user supplied and is applied to untrusted log
+                # text, so it is capped with a match timeout. Without one, a
+                # backtracking pattern such as '(a+)+$' against an ordinary log
+                # message runs effectively forever with no way to interrupt it.
+                $regex = [regex]::new(
+                    $Pattern,
+                    [System.Text.RegularExpressions.RegexOptions]::IgnoreCase,
+                    $matchTimeout)
+            }
+            catch [System.ArgumentException] {
+                $PSCmdlet.ThrowTerminatingError(
+                    [System.Management.Automation.ErrorRecord]::new(
+                        [System.ArgumentException]::new(
+                            "-Pattern is not a valid regular expression: $($_.Exception.Message)", 'Pattern'),
+                        'InvalidPattern',
+                        [System.Management.Automation.ErrorCategory]::InvalidArgument,
+                        $Pattern))
+            }
         }
-        else { $null }
 
         $emit = {
-            param($lines)
-            foreach ($ln in $lines) {
-                if ([string]::IsNullOrWhiteSpace($ln)) { continue }
+            param([string] $Text)
 
-                $entry = ConvertFrom-LogLine -Line $ln
-                if ($entry.Level -notin $wantedLevels) { continue }
+            if ([string]::IsNullOrWhiteSpace($Text)) { return }
 
-                if ($hasSince) {
-                    if ($null -eq $entry.Timestamp) {
-                        if ($RequireTimestamp) { continue }
-                    }
-                    elseif ($entry.Timestamp -lt $Since) {
-                        continue
-                    }
+            $entry = ConvertFrom-LogLine -Line $Text
+            if ($entry.Level -notin $wantedLevels) { return }
+
+            if ($hasSince) {
+                if ($null -eq $entry.Timestamp) {
+                    if ($RequireTimestamp) { return }
                 }
-
-                if ($regex -and -not $regex.IsMatch($entry.Message)) { continue }
-
-                $entry
+                elseif ($entry.Timestamp -lt $Since) {
+                    return
+                }
             }
+
+            if ($regex) {
+                try {
+                    if (-not $regex.IsMatch($entry.Message)) { return }
+                }
+                catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                    # Every remaining line would hit the same wall, so stop
+                    # rather than quietly dropping matches.
+                    $PSCmdlet.ThrowTerminatingError(
+                        [System.Management.Automation.ErrorRecord]::new(
+                            [System.TimeoutException]::new(
+                                ("-Pattern '{0}' exceeded the {1}s match timeout. Rewrite it to avoid nested quantifiers." -f
+                                    $Pattern, $matchTimeout.TotalSeconds)),
+                            'PatternMatchTimeout',
+                            [System.Management.Automation.ErrorCategory]::OperationTimeout,
+                            $Pattern))
+                }
+            }
+
+            $entry
         }
 
         if ($PSCmdlet.ParameterSetName -eq 'Path') {
-            if (-not (Test-Path -LiteralPath $Path)) {
-                throw "Log file not found: $Path"
+            $file = Resolve-LogFilePath -Path $Path
+            # ReadLines enumerates lazily, so matches stream out as they are
+            # found instead of the whole file being read up front.
+            foreach ($line in [System.IO.File]::ReadLines($file)) {
+                & $emit $line
             }
-            & $emit (Get-Content -LiteralPath $Path)
         }
     }
 
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Pipeline') {
-            & $emit $InputObject
+            foreach ($line in $InputObject) {
+                & $emit ([string] $line)
+            }
         }
     }
 }

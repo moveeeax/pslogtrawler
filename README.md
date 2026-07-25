@@ -77,6 +77,21 @@ Get-Content app.log | Measure-LogRate -Interval Hour -Level ERROR
 
 `Rate` is always expressed per minute, so hourly buckets divide the count by 60.
 
+## Large files
+
+`Get-LogSummary`, `Select-LogError` and `Measure-LogRate` stream their input a
+line at a time, whether it arrives via `-Path` or the pipeline. Nothing but the
+running totals is retained, so memory stays flat and a multi-gigabyte log is
+fine:
+
+```powershell
+Get-LogSummary -Path ./huge.log
+```
+
+`-Pattern` on `Select-LogError` is capped at a two-second match timeout per
+line, so a pattern that backtracks catastrophically fails with a clear error
+rather than hanging the pipeline.
+
 ## Running the tests
 
 Tests use [Pester 5.x](https://pester.dev):
