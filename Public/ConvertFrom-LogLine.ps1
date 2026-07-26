@@ -31,6 +31,7 @@ function ConvertFrom-LogLine {
     param(
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
         [AllowEmptyString()]
+        [AllowNull()]
         [string[]] $Line,
 
         [int] $DefaultYear = (Get-Date).Year
@@ -71,7 +72,22 @@ function ConvertFrom-LogLine {
     }
 
     process {
-        foreach ($raw in $Line) {
+        # A single $null pipeline object binds $Line itself to $null (rather
+        # than to a one-element array containing $null), and `foreach` over a
+        # $null collection silently iterates zero times. Without this guard
+        # that line would vanish instead of surfacing as an empty entry.
+        # (Building the replacement via `if (...) { , $null } else { ... }`
+        # and capturing its output would collapse right back to $null --
+        # PowerShell unwraps a single-item array written to the pipeline --
+        # so the branches assign directly instead.)
+        if ($null -eq $Line) {
+            $items = , $null
+        }
+        else {
+            $items = $Line
+        }
+
+        foreach ($raw in $items) {
             $text = if ($null -eq $raw) { '' } else { $raw }
 
             $timestamp = $null

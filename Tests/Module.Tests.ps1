@@ -128,3 +128,88 @@ Describe 'File input is streamed, not buffered' {
         $readLines.Count | Should -BeGreaterThan 0
     }
 }
+
+Describe 'File handle is released even when a line handler throws' {
+
+    BeforeAll {
+        # The 'Module import integrity' Describe above removes the module in
+        # its own AfterEach, so it cannot be assumed to still be loaded here.
+        Import-Module $manifestPath -Force
+    }
+
+    # A bare `foreach` over [System.IO.File]::ReadLines(...) does not call
+    # Dispose() on the enumerator when the loop is abandoned via a
+    # terminating error (e.g. Select-LogError's own -Pattern match-timeout
+    # error). That left the underlying file handle open, which on Windows
+    # blocks a caller from deleting or rotating the log file right after
+    # catching the error, and under sustained use leaks file descriptors.
+    # Force a mid-stream throw and verify the file can immediately be
+    # opened exclusively afterward, proving the handle was released.
+    It '<Name> releases the file handle when a line handler throws' -ForEach @(
+        @{ Name = 'Get-LogSummary' }
+        @{ Name = 'Select-LogError' }
+        @{ Name = 'Measure-LogRate' }
+    ) {
+        Mock ConvertFrom-LogLine -ModuleName PSLogTrawler { throw 'boom from mock' }
+
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("pslt-handle-{0}.log" -f [guid]::NewGuid())
+        Set-Content -LiteralPath $tmp -Value @('line one', 'line two')
+        try {
+            { & $Name -Path $tmp -ErrorAction Stop } | Should -Throw
+
+            $exclusive = $null
+            try {
+                $exclusive = [System.IO.File]::Open($tmp, 'Open', 'Read', 'None')
+            }
+            finally {
+                if ($exclusive) { $exclusive.Dispose() }
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Null items in pipeline input are treated as empty lines' {
+
+    BeforeAll {
+        # The 'Module import integrity' Describe above removes the module in
+        # its own AfterEach, so it cannot be assumed to still be loaded here.
+        Import-Module $manifestPath -Force
+    }
+
+    # [AllowEmptyString()] alone still rejects a bare $null pipeline item
+    # with a per-item "Cannot bind argument" error before the function body
+    # ever runs -- even though every one of these functions already casts
+    # or checks for $null internally, which only ever fires if the item was
+    # $null inside an otherwise-non-null array, not for a truly null
+    # pipeline object. [AllowNull()] makes that existing handling reachable.
+    It 'ConvertFrom-LogLine treats a null pipeline item as an empty line' {
+        $result = @($null, 'plain line') | ConvertFrom-LogLine
+        $result.Count | Should -Be 2
+        $result[0].Message | Should -Be ''
+        $result[0].Raw | Should -Be ''
+        $result[1].Message | Should -Be 'plain line'
+    }
+
+    It '<Name> accepts a null pipeline item without a binding error' -ForEach @(
+        @{ Name = 'Get-LogSummary' }
+        @{ Name = 'Select-LogError' }
+        @{ Name = 'Measure-LogRate' }
+    ) {
+        { @($null, '[2021-08-14T13:45:22] [ERROR] disk full') | & $Name -ErrorAction Stop } |
+            Should -Not -Throw
+    }
+
+    It 'Get-LogSummary counts a null pipeline item as a blank line rather than dropping it' {
+        # A bare `foreach` over a $null-bound array parameter silently
+        # iterates zero times, which would make the null item disappear
+        # entirely -- not even reflected in BlankSkipped -- instead of being
+        # counted the same way an actual blank line is.
+        $summary = @($null, '[2021-08-14T13:45:22] [ERROR] disk full', $null) | Get-LogSummary
+        $summary.Total | Should -Be 1
+        $summary.Error | Should -Be 1
+        $summary.BlankSkipped | Should -Be 2
+    }
+}
