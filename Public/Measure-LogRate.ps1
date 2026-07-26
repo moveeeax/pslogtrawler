@@ -32,6 +32,7 @@ function Measure-LogRate {
     param(
         [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'Pipeline')]
         [AllowEmptyString()]
+        [AllowNull()]
         [string[]] $InputObject,
 
         [Parameter(Mandatory, ParameterSetName = 'Path', Position = 0)]
@@ -88,15 +89,38 @@ function Measure-LogRate {
         if ($PSCmdlet.ParameterSetName -eq 'Path') {
             $file = Resolve-LogFilePath -Path $Path
             # ReadLines enumerates lazily -- the file is streamed, not slurped.
-            foreach ($line in [System.IO.File]::ReadLines($file)) {
-                & $bucket $line
+            # A plain `foreach` does not call Dispose() on the enumerator when
+            # the loop is abandoned via a terminating error (e.g. a line's
+            # regex matching times out), which leaks the open file handle.
+            # Enumerate explicitly so the handle is released on every path.
+            $enumerator = [System.IO.File]::ReadLines($file).GetEnumerator()
+            try {
+                while ($enumerator.MoveNext()) {
+                    & $bucket $enumerator.Current
+                }
+            }
+            finally {
+                $enumerator.Dispose()
             }
         }
     }
 
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Pipeline') {
-            foreach ($line in $InputObject) {
+            # A single $null pipeline object binds $InputObject itself to
+            # $null rather than to a one-element array containing $null, and
+            # `foreach` over a $null collection silently iterates zero times
+            # -- that line would otherwise vanish instead of being handled.
+            # (Capturing `if (...) { , $null } else { ... }` would collapse
+            # right back to $null -- PowerShell unwraps a single-item array
+            # written to the pipeline -- so the branches assign directly.)
+            if ($null -eq $InputObject) {
+                $items = , $null
+            }
+            else {
+                $items = $InputObject
+            }
+            foreach ($line in $items) {
                 & $bucket ([string] $line)
             }
         }

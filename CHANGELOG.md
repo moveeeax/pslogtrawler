@@ -20,6 +20,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   running unbounded. An invalid pattern is now reported as an argument error
   rather than a raw `MethodInvocationException`.
 - `-Path` arguments that name a directory are rejected with a clear message.
+- `Get-LogSummary`, `Select-LogError` and `Measure-LogRate` no longer leak the
+  open file handle from `-Path` when a line handler throws mid-stream (most
+  reachable via `Select-LogError -Pattern`'s own match-timeout error). The
+  leaked handle previously blocked deleting or rotating the log file right
+  after catching the error.
+- A `$null` item in pipeline input is now treated the same as an empty line
+  instead of raising a per-item binding error (or, once bindable, silently
+  vanishing without even being counted as blank).
 
 ### Changed
 

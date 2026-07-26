@@ -37,6 +37,7 @@ function Select-LogError {
     param(
         [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'Pipeline')]
         [AllowEmptyString()]
+        [AllowNull()]
         [string[]] $InputObject,
 
         [Parameter(Mandatory, ParameterSetName = 'Path', Position = 0)]
@@ -122,16 +123,39 @@ function Select-LogError {
         if ($PSCmdlet.ParameterSetName -eq 'Path') {
             $file = Resolve-LogFilePath -Path $Path
             # ReadLines enumerates lazily, so matches stream out as they are
-            # found instead of the whole file being read up front.
-            foreach ($line in [System.IO.File]::ReadLines($file)) {
-                & $emit $line
+            # found instead of the whole file being read up front. A plain
+            # `foreach` does not call Dispose() on the enumerator when the
+            # loop is abandoned via a terminating error -- most notably the
+            # -Pattern match-timeout error raised below -- which leaks the
+            # open file handle. Enumerate explicitly so it is always released.
+            $enumerator = [System.IO.File]::ReadLines($file).GetEnumerator()
+            try {
+                while ($enumerator.MoveNext()) {
+                    & $emit $enumerator.Current
+                }
+            }
+            finally {
+                $enumerator.Dispose()
             }
         }
     }
 
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Pipeline') {
-            foreach ($line in $InputObject) {
+            # A single $null pipeline object binds $InputObject itself to
+            # $null rather than to a one-element array containing $null, and
+            # `foreach` over a $null collection silently iterates zero times
+            # -- that line would otherwise vanish instead of being handled.
+            # (Capturing `if (...) { , $null } else { ... }` would collapse
+            # right back to $null -- PowerShell unwraps a single-item array
+            # written to the pipeline -- so the branches assign directly.)
+            if ($null -eq $InputObject) {
+                $items = , $null
+            }
+            else {
+                $items = $InputObject
+            }
+            foreach ($line in $items) {
                 & $emit ([string] $line)
             }
         }
