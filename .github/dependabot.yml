@@ -1,10 +1,17 @@
+# Monthly, with patch and minor updates grouped into one PR each; majors
+# come one per PR. Patch PRs merge themselves once CI passes
+# (dependabot-auto-merge.yml).
 version: 2
+
 updates:
-  # The CI workflow is the only thing with pinned dependencies; keep the
-  # action versions from silently going stale.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
     commit-message:
-      prefix: ci
+      prefix: "ci"
+    groups:
+      patch:
+        update-types: [patch]
+      minor:
+        update-types: [minor]
