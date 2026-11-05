@@ -5,6 +5,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
+### Changed
+
+- **Breaking:** the minimum supported PowerShell is now 7.6 (LTS). 7.1 has
+  been out of support since May 2022 and 7.4 reaches end of support on
+  2026-11-10; CI only exercises 7.6.
+- Tests now run on Pester 6.x (CI pins 6.2.0).
+- `ConvertFrom-LogLine` compiles its regexes once per session rather than on
+  every call, roughly halving per-line parse cost.
+
 ### Fixed
 
 - A parse failure in any `Public/*.ps1` no longer leaves the module importable
@@ -28,11 +39,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A `$null` item in pipeline input is now treated the same as an empty line
   instead of raising a per-item binding error (or, once bindable, silently
   vanishing without even being counted as blank).
-
-### Changed
-
-- `ConvertFrom-LogLine` compiles its regexes once per session rather than on
-  every call, roughly halving per-line parse cost.
 
 ### Added
 
