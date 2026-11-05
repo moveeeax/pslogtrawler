@@ -10,12 +10,12 @@ Describe 'Module manifest and surface' {
         { Test-ModuleManifest -Path $manifestPath } | Should -Not -Throw
     }
 
-    It 'declares ModuleVersion 0.1.0' {
-        (Import-PowerShellDataFile -Path $manifestPath).ModuleVersion | Should -Be '0.1.0'
+    It 'declares ModuleVersion 0.2.0' {
+        (Import-PowerShellDataFile -Path $manifestPath).ModuleVersion | Should -Be '0.2.0'
     }
 
-    It 'requires PowerShell 7.1' {
-        (Import-PowerShellDataFile -Path $manifestPath).PowerShellVersion | Should -Be '7.1'
+    It 'requires PowerShell 7.6' {
+        (Import-PowerShellDataFile -Path $manifestPath).PowerShellVersion | Should -Be '7.6'
     }
 
     It 'exports exactly the four public functions' {

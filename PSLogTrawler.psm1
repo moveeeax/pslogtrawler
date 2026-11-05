@@ -1,4 +1,4 @@
-#Requires -Version 7.1
+#Requires -Version 7.6
 
 # Dot-source all public and private function definitions, then export the
 # public surface. Keeping the loader dumb means new functions only need a

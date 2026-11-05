@@ -1,12 +1,12 @@
 @{
     RootModule        = 'PSLogTrawler.psm1'
-    ModuleVersion     = '0.1.0'
+    ModuleVersion     = '0.2.0'
     GUID              = 'b3f4c6e2-1a7d-4f8b-9c2e-6d5a0e4b1c37'
     Author            = 'Michael Tarassov'
     CompanyName       = 'Michael Tarassov'
     Copyright         = '(c) 2021 Michael Tarassov. MIT License.'
     Description       = 'Cross-platform toolkit for parsing and analyzing plain-text log files.'
-    PowerShellVersion = '7.1'
+    PowerShellVersion = '7.6'
 
     FormatsToProcess  = @('PSLogTrawler.Format.ps1xml')
 
@@ -25,7 +25,7 @@
             Tags       = @('logging', 'log', 'parsing', 'analysis', 'devops', 'crossplatform')
             LicenseUri = 'https://opensource.org/licenses/MIT'
             ProjectUri = 'https://github.com/moveeeax/pslogtrawler'
-            ReleaseNotes = 'Initial 0.1.0 release: ConvertFrom-LogLine, Get-LogSummary, Select-LogError, Measure-LogRate.'
+            ReleaseNotes = '0.2.0: requires PowerShell 7.6+; streams -Path input with bounded memory and no leaked file handles; -Pattern match timeout; fails the import loudly on broken function files. See CHANGELOG.md.'
         }
     }
 }

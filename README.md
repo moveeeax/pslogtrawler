@@ -2,7 +2,7 @@
 
 A small, cross-platform PowerShell toolkit for trawling plain-text log files:
 parse lines into structured objects, tally them by level, pull out the errors,
-and measure event rates over time. No dependencies beyond PowerShell 7.1+.
+and measure event rates over time. No dependencies beyond PowerShell 7.6+.
 
 ## Install
 
@@ -94,7 +94,7 @@ rather than hanging the pipeline.
 
 ## Running the tests
 
-Tests use [Pester 5.x](https://pester.dev):
+Tests use [Pester 6.x](https://pester.dev) (CI pins 6.2.0):
 
 ```powershell
 Invoke-Pester -Path ./Tests -Output Detailed
