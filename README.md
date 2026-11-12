@@ -24,7 +24,7 @@ Import-Module ./pslogtrawler/PSLogTrawler.psd1
 
 ## Supported line formats
 
-`ConvertFrom-LogLine` recognizes two common shapes and falls back gracefully:
+`ConvertFrom-LogLine` recognizes two common text shapes and falls back gracefully:
 
 * **ISO-8601 bracketed** — `[2021-08-14T13:45:22] [ERROR] disk full`
   (a space instead of `T` and an unbracketed level both work)
@@ -33,6 +33,44 @@ Import-Module ./pslogtrawler/PSLogTrawler.psd1
 
 Levels are normalized onto four buckets — `ERROR`, `WARN`, `INFO`, `DEBUG` —
 so synonyms like `WARNING`, `FATAL`, `TRACE` and `NOTICE` are folded in.
+
+### JSON lines
+
+Structured loggers (Serilog, zap, pino, bunyan, ...) write one JSON object per
+line. Pass `-Format Json` to read those:
+
+```powershell
+Get-Content app.jsonl | ConvertFrom-LogLine -Format Json |
+    Where-Object { $_.Fields.user -eq 'alice' }
+```
+
+* The timestamp, level and message come from the first field present in
+  `-TimestampField` (default `time`, `ts`, `@t`, `timestamp`, `@timestamp`),
+  `-LevelField` (default `level`, `lvl`, `@l`, `severity`) and
+  `-MessageField` (default `msg`, `message`, `@m`, `@mt`). Field names match
+  case-insensitively. Quote names that start with `@` (`-LevelField '@l'`),
+  otherwise PowerShell treats them as splatting.
+* Timestamps can be ISO-8601 strings or Unix epoch numbers. The epoch unit
+  (seconds, milliseconds, microseconds, nanoseconds) is inferred from the
+  magnitude, so pino's millisecond `time` and zap's fractional-second `ts`
+  both work.
+* Level names are folded onto the same four buckets. pino/bunyan numeric
+  levels map as 10-20 `DEBUG`, 30 `INFO`, 40 `WARN`, 50-60 `ERROR`; zap's
+  `panic`/`dpanic` and cloud `ALERT`/`EMERGENCY` count as `ERROR`. A Serilog
+  compact (CLEF) record without `@l` is `INFO`, as the format defines.
+* Every other field lands in the `Fields` hashtable, as do level and
+  timestamp fields whose value could not be understood. With no message field
+  the whole line becomes `Message`. Text entries have `Fields` set to `$null`.
+* A line that is not a JSON object (a banner, a stack trace, malformed JSON)
+  is parsed as text instead of being dropped.
+
+`Get-LogSummary`, `Select-LogError` and `Measure-LogRate` accept the same
+`-Format`, `-TimestampField`, `-LevelField` and `-MessageField` parameters:
+
+```powershell
+Get-LogSummary -Path ./app.jsonl -Format Json
+Select-LogError -Path ./app.jsonl -Format Json -Pattern 'timeout'
+```
 
 ## Usage
 

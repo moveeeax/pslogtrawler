@@ -21,6 +21,16 @@ function Get-LogSummary {
         Log line(s) supplied via the pipeline.
     .PARAMETER IncludeBlank
         Count blank/whitespace-only lines instead of skipping them.
+    .PARAMETER Format
+        Text (default) or Json for JSON-lines logs. Passed to
+        ConvertFrom-LogLine, as are the three field-name parameters below.
+    .PARAMETER TimestampField
+        JSON field names to read the timestamp from (-Format Json only). See
+        ConvertFrom-LogLine for the defaults.
+    .PARAMETER LevelField
+        JSON field names to read the level from (-Format Json only).
+    .PARAMETER MessageField
+        JSON field names to read the message from (-Format Json only).
     .EXAMPLE
         Get-LogSummary -Path ./app.log
 
@@ -39,10 +49,30 @@ function Get-LogSummary {
         [AllowNull()]
         [string[]] $InputObject,
 
-        [switch] $IncludeBlank
+        [switch] $IncludeBlank,
+
+        [ValidateSet('Text', 'Json')]
+        [string] $Format,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $TimestampField,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $LevelField,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $MessageField
     )
 
     begin {
+        # Forward only what the caller set, so ConvertFrom-LogLine stays the
+        # one place that defines the defaults.
+        $parseArgs = @{}
+        if ($PSBoundParameters.ContainsKey('Format'))         { $parseArgs.Format         = $Format }
+        if ($PSBoundParameters.ContainsKey('TimestampField')) { $parseArgs.TimestampField = $TimestampField }
+        if ($PSBoundParameters.ContainsKey('LevelField'))     { $parseArgs.LevelField     = $LevelField }
+        if ($PSBoundParameters.ContainsKey('MessageField'))   { $parseArgs.MessageField   = $MessageField }
+
         # All mutable state lives in one object so the shared per-line routine
         # below can update it from its own scope.
         $state = @{
@@ -63,7 +93,7 @@ function Get-LogSummary {
             }
 
             $state.Total++
-            $entry = ConvertFrom-LogLine -Line $Text
+            $entry = ConvertFrom-LogLine -Line $Text @parseArgs
 
             if ($entry.Level) { $state.Counts[$entry.Level]++ }
             else              { $state.Counts['Unknown']++ }
