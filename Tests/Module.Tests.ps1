@@ -10,8 +10,8 @@ Describe 'Module manifest and surface' {
         { Test-ModuleManifest -Path $manifestPath } | Should -Not -Throw
     }
 
-    It 'declares ModuleVersion 0.2.0' {
-        (Import-PowerShellDataFile -Path $manifestPath).ModuleVersion | Should -Be '0.2.0'
+    It 'declares ModuleVersion 0.3.0' {
+        (Import-PowerShellDataFile -Path $manifestPath).ModuleVersion | Should -Be '0.3.0'
     }
 
     It 'requires PowerShell 7.6' {
