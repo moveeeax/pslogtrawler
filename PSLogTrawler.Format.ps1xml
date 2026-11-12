@@ -2,6 +2,32 @@
 <Configuration>
   <ViewDefinitions>
 
+    <!-- LogEntry has five properties, which would otherwise
+         switch the default display to a list. Fields and Raw stay reachable
+         via Format-List or member access. -->
+    <View>
+      <Name>PSLogTrawler.LogEntry</Name>
+      <ViewSelectedBy>
+        <TypeName>PSLogTrawler.LogEntry</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader><Label>Timestamp</Label></TableColumnHeader>
+          <TableColumnHeader><Label>Level</Label><Width>5</Width></TableColumnHeader>
+          <TableColumnHeader><Label>Message</Label></TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem><PropertyName>Timestamp</PropertyName></TableColumnItem>
+              <TableColumnItem><PropertyName>Level</PropertyName></TableColumnItem>
+              <TableColumnItem><PropertyName>Message</PropertyName></TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
+
     <View>
       <Name>PSLogTrawler.LogSummary</Name>
       <ViewSelectedBy>

@@ -5,6 +5,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `-Format Json` on `ConvertFrom-LogLine`, `Get-LogSummary`, `Select-LogError`
+  and `Measure-LogRate` reads JSON-lines logs (Serilog, zap, pino, bunyan).
+  Timestamp, level and message come from the first matching name in
+  `-TimestampField`, `-LevelField` and `-MessageField`; ISO-8601 and epoch
+  timestamps and pino/bunyan numeric levels are understood. Remaining fields
+  go into a new `Fields` hashtable on each entry. Lines that are not a JSON
+  object fall back to the text parser.
+- A table view for `PSLogTrawler.LogEntry` showing Timestamp, Level and
+  Message. Entries now carry five properties (`Fields` is `$null` for text
+  lines), which would otherwise switch their default display to a list.
+
 ## [0.2.0] - 2026-11-05
 
 ### Changed

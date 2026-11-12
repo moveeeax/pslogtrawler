@@ -25,6 +25,16 @@ function Select-LogError {
         Also return WARN entries, not just ERROR.
     .PARAMETER RequireTimestamp
         When combined with -Since, drop entries that have no parseable timestamp.
+    .PARAMETER Format
+        Text (default) or Json for JSON-lines logs. Passed to
+        ConvertFrom-LogLine, as are the three field-name parameters below.
+    .PARAMETER TimestampField
+        JSON field names to read the timestamp from (-Format Json only). See
+        ConvertFrom-LogLine for the defaults.
+    .PARAMETER LevelField
+        JSON field names to read the level from (-Format Json only).
+    .PARAMETER MessageField
+        JSON field names to read the message from (-Format Json only).
     .EXAMPLE
         Get-Content app.log | Select-LogError -Since (Get-Date).AddHours(-1)
 
@@ -49,10 +59,30 @@ function Select-LogError {
 
         [switch] $IncludeWarnings,
 
-        [switch] $RequireTimestamp
+        [switch] $RequireTimestamp,
+
+        [ValidateSet('Text', 'Json')]
+        [string] $Format,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $TimestampField,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $LevelField,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $MessageField
     )
 
     begin {
+        # Forward only what the caller set, so ConvertFrom-LogLine stays the
+        # one place that defines the defaults.
+        $parseArgs = @{}
+        if ($PSBoundParameters.ContainsKey('Format'))         { $parseArgs.Format         = $Format }
+        if ($PSBoundParameters.ContainsKey('TimestampField')) { $parseArgs.TimestampField = $TimestampField }
+        if ($PSBoundParameters.ContainsKey('LevelField'))     { $parseArgs.LevelField     = $LevelField }
+        if ($PSBoundParameters.ContainsKey('MessageField'))   { $parseArgs.MessageField   = $MessageField }
+
         $wantedLevels = if ($IncludeWarnings) { @('ERROR', 'WARN') } else { @('ERROR') }
         $hasSince = $PSBoundParameters.ContainsKey('Since')
 
@@ -87,7 +117,7 @@ function Select-LogError {
 
             if ([string]::IsNullOrWhiteSpace($Text)) { return }
 
-            $entry = ConvertFrom-LogLine -Line $Text
+            $entry = ConvertFrom-LogLine -Line $Text @parseArgs
             if ($entry.Level -notin $wantedLevels) { return }
 
             if ($hasSince) {

@@ -1,0 +1,10 @@
+{"level":30,"time":1628931601000,"pid":4120,"hostname":"web-1","msg":"service starting","user":"system"}
+{"level":20,"time":1628931605000,"pid":4120,"hostname":"web-1","msg":"loaded 12 routes","user":"system"}
+{"level":30,"time":1628931900000,"pid":4120,"hostname":"web-1","msg":"user logged in","user":"alice"}
+{"level":40,"time":1628932500000,"pid":4120,"hostname":"web-1","msg":"disk usage at 85%","user":"system"}
+{"level":50,"time":1628933100000,"pid":4120,"hostname":"web-1","msg":"upstream request timeout","user":"alice","req":{"method":"GET","url":"/api/orders"}}
+
+=== maintenance banner, not JSON ===
+{"level":30,"time":1628935200000,"pid":4120,"hostname":"web-1","msg":"user logged in","user":"bob"}
+{"level":50,"time":1628935500000,"pid":4120,"hostname":"web-1","msg":"disk full on /var","user":"system"}
+{"level":60,"time":1628935800000,"pid":4120,"hostname":"web-1","msg":"shutting down","user":"system"}

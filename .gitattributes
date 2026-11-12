@@ -7,3 +7,4 @@
 
 # Log fixtures are parsed line by line; pin them to LF.
 *.log   text eol=lf
+*.jsonl text eol=lf

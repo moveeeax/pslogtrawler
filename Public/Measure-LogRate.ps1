@@ -20,6 +20,16 @@ function Measure-LogRate {
         Bucket size: Minute (default) or Hour.
     .PARAMETER Level
         Only count entries of this canonical level (ERROR/WARN/INFO/DEBUG).
+    .PARAMETER Format
+        Text (default) or Json for JSON-lines logs. Passed to
+        ConvertFrom-LogLine, as are the three field-name parameters below.
+    .PARAMETER TimestampField
+        JSON field names to read the timestamp from (-Format Json only). See
+        ConvertFrom-LogLine for the defaults.
+    .PARAMETER LevelField
+        JSON field names to read the level from (-Format Json only).
+    .PARAMETER MessageField
+        JSON field names to read the message from (-Format Json only).
     .EXAMPLE
         Get-Content app.log | Measure-LogRate -Interval Hour
 
@@ -42,10 +52,30 @@ function Measure-LogRate {
         [string] $Interval = 'Minute',
 
         [ValidateSet('ERROR', 'WARN', 'INFO', 'DEBUG')]
-        [string] $Level
+        [string] $Level,
+
+        [ValidateSet('Text', 'Json')]
+        [string] $Format,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $TimestampField,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $LevelField,
+
+        [ValidateNotNullOrEmpty()]
+        [string[]] $MessageField
     )
 
     begin {
+        # Forward only what the caller set, so ConvertFrom-LogLine stays the
+        # one place that defines the defaults.
+        $parseArgs = @{}
+        if ($PSBoundParameters.ContainsKey('Format'))         { $parseArgs.Format         = $Format }
+        if ($PSBoundParameters.ContainsKey('TimestampField')) { $parseArgs.TimestampField = $TimestampField }
+        if ($PSBoundParameters.ContainsKey('LevelField'))     { $parseArgs.LevelField     = $LevelField }
+        if ($PSBoundParameters.ContainsKey('MessageField'))   { $parseArgs.MessageField   = $MessageField }
+
         # Only the per-bucket counters are retained, never the log lines
         # themselves, so memory scales with the number of distinct buckets
         # rather than with the size of the input.
@@ -61,7 +91,7 @@ function Measure-LogRate {
 
             if ([string]::IsNullOrWhiteSpace($Text)) { return }
 
-            $entry = ConvertFrom-LogLine -Line $Text
+            $entry = ConvertFrom-LogLine -Line $Text @parseArgs
             if ($filterLevel -and $entry.Level -ne $Level) { return }
 
             if ($null -eq $entry.Timestamp) {
