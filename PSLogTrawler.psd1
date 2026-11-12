@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PSLogTrawler.psm1'
-    ModuleVersion     = '0.2.0'
+    ModuleVersion     = '0.3.0'
     GUID              = 'b3f4c6e2-1a7d-4f8b-9c2e-6d5a0e4b1c37'
     Author            = 'Michael Tarassov'
     CompanyName       = 'Michael Tarassov'
@@ -25,7 +25,7 @@
             Tags       = @('logging', 'log', 'parsing', 'analysis', 'devops', 'crossplatform')
             LicenseUri = 'https://opensource.org/licenses/MIT'
             ProjectUri = 'https://github.com/moveeeax/pslogtrawler'
-            ReleaseNotes = '0.2.0: requires PowerShell 7.6+; streams -Path input with bounded memory and no leaked file handles; -Pattern match timeout; fails the import loudly on broken function files. See CHANGELOG.md.'
+            ReleaseNotes = '0.3.0: -Format Json reads JSON-lines logs (Serilog, zap, pino, bunyan); table view for log entries. See CHANGELOG.md.'
         }
     }
 }
